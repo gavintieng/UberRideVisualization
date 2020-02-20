@@ -1,28 +1,91 @@
 ---
 title: "UberDataAnalysis"
-output: html_document
+output:
+  pdf_document: default
+  html_document:
+  keep_md = true
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+## Introduction: Installing Required Packages
+```{r}
+library(scales) #helps constructing scales for plots
+library(ggplot2) #used for data visualization
+library(ggthemes) #package that contains extra themes for ggplot2
+library(dplyr)
+library(tidyr) #used for data cleaning
+library(DT) #provides R interface for DataTables (Java) library
+library(lubridate) #helps parse/manipulate dates
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+## Importing Pickup Data (CSVs)
+```{r}
+april <- read.csv("/Users/Gavin/Desktop/UberRideVisualization/Uber-dataset/uber-raw-data-apr14.csv")
+may <- read.csv("/Users/Gavin/Desktop/UberRideVisualization/Uber-dataset/uber-raw-data-may14.csv")
+june <- read.csv("/Users/Gavin/Desktop/UberRideVisualization/Uber-dataset/uber-raw-data-jun14.csv")
+july <- read.csv("/Users/Gavin/Desktop/UberRideVisualization/Uber-dataset/uber-raw-data-jul14.csv")
+august <- read.csv("/Users/Gavin/Desktop/UberRideVisualization/Uber-dataset/uber-raw-data-aug14.csv")
+september <- read.csv("/Users/Gavin/Desktop/UberRideVisualization/Uber-dataset/uber-raw-data-sep14.csv")
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+## Combining Pickup Data into Dataframe
+```{r}
+#a data frame that stacks all the months into a single data frame
+data2014 <- rbind(april,may,june,july,august,september) 
+
+#converting the "date.time" column to a calendar date format
+data2014$Date.Time <- as.POSIXct(data2014$Date.Time,format="%m/%d/%Y %H:%M:%S")
+data2014$Time <- format(as.POSIXct(data2014$Date.Time,format="%m/%d/%Y %H:%M:%S"),format="%H:%M:%S")
+data2014$Date.Time <- ymd_hms(data2014$Date.Time)
+
+#factorizing each column
+data2014$day <- factor(day(data2014$Date.Time))
+data2014$month <- factor(month(data2014$Date.Time,label=TRUE))
+data2014$year <- factor(year(data2014$Date.Time))
+data2014$dayofweek <- factor(wday(data2014$Date.Time,label=TRUE))
+
+
+data2014$hour <- factor(hour(hms(data2014$Time)))
+data2014$minute <- factor(minute(hms(data2014$Time)))
+data2014$second <- factor(second(hms(data2014$Time)))
+
+```
+
+## Creating a Colors Vector
+```{r}
+colors = c("#CC1011", "#665555", "#05a399", "#cfcaca", "#f5e840", "#0683c9", "#e075b0")
+```
+
+## Number of Trips Every Hour in a Day + Every Hour in Each Month
+```{r}
+library(magrittr)
+library(dplyr)
+library(gridExtra)
+
+hourdata <- data2014 %>% group_by(hour) %>% dplyr::summarize(Total=n())
+
+plot1 <- ggplot(hourdata,aes(hour,Total)) +
+  geom_bar(stat="identity",fill="blue",color="green") +
+  ggtitle("Number of Trips Every Hour in a Day") +
+  theme(legend.position='none') +
+  scale_y_continuous(labels=comma)
+
+plot1
+
+monthhour <- data2014 %>% group_by(month,hour) %>% dplyr::summarize(Total=n())
+
+plot2 <- ggplot(monthhour,aes(hour,Total,fill=month)) +
+  geom_bar(stat="identity") +
+  ggtitle("Trips by Hour and Month") +
+  scale_y_continuous(labels=comma)
+
+plot2
+
+
+#require(gridExtra)
+#grid.arrange(plot1,plot2,ncol=2)
+
+```
